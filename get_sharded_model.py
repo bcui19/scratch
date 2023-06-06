@@ -50,7 +50,9 @@ def main(cfg):
 
     # Just the state dict itself
     raw_state_dict = torch.load(cfg.raw_state_dict)
-    state_optimizer_name = list(raw_state_dict['state']['optimizers'].keys())[0]
+    state_optimizer_name = None
+    if 'optimizers' in raw_state_dict['state']:
+        state_optimizer_name = list(raw_state_dict['state']['optimizers'].keys())[0]
 
     state_dict = None
     if dist.get_local_rank() == 0:
@@ -74,22 +76,27 @@ def main(cfg):
 
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
 
-    print ("before building optimizer")
-    optimizer = build_optimizer(cfg.optimizer, model)
-    print ("after loading optimizer")
-    optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
-    print ("after got optimizer state dict")
-    optimizer.load_state_dict(optimizer_state_dict)
-    print ("after loaded optimizer state dict")
+    if 'optimizers' in raw_state_dict['state']:
+        print ("before building optimizer")
+        optimizer = build_optimizer(cfg.optimizer, model)
+        print ("after loading optimizer")
+        optimizer_state_dict = load_optimizer_checkpoint(model, cfg, state_dict, state_optimizer_name)
+        print ("after got optimizer state dict")
+        optimizer.load_state_dict(optimizer_state_dict)
+        print ("after loaded optimizer state dict")
+    else:
+        print ("couldn't find optimizers in state dict")
 
     with fsdp_state_dict_type_context(model, state_dict_type='sharded'):
         raw_state_dict['state']['model'] = model.state_dict()
 
-        # This works with torch 2.0...
-        if version.parse(torch.__version__) >= version.parse('2.0.0'):
-            raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.optim_state_dict(model, optimizer)
-        else:
-            raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.sharded_optim_state_dict(model=model, optim=optimizer)
+        if 'optimizers' in raw_state_dict['state']:
+            print ("getting optimizers")
+            # This works with torch 2.0...
+            if version.parse(torch.__version__) >= version.parse('2.0.0'):
+                raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.optim_state_dict(model, optimizer)
+            else:
+                raw_state_dict['state']['optimizers'][state_optimizer_name] = FullyShardedDataParallel.sharded_optim_state_dict(model=model, optim=optimizer)
 
     torch.save(raw_state_dict, f"temp/rank{dist.get_global_rank()}.pt")
 
