@@ -18,10 +18,11 @@ def main(cfg):
     state_dict = torch.load(cfg.mono_checkpoint_path)
 
     del state_dict['state']['model']
-    for optimizer in state_dict['state']['optimizers']:
-        state_dict['state']['optimizers'][optimizer] = {}
     if cfg.get('ignore_optimizers', True):
         state_dict['state']['optimizers'] = {}
+    else:
+        for optimizer in state_dict['state']['optimizers']:
+            state_dict['state']['optimizers'][optimizer] = {}
     
     torch.save(state_dict, cfg.raw_state_dict)
 
