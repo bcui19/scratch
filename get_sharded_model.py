@@ -51,7 +51,7 @@ def main(cfg):
     # Just the state dict itself
     raw_state_dict = torch.load(cfg.raw_state_dict)
     state_optimizer_name = None
-    if 'optimizers' in raw_state_dict['state']:
+    if 'optimizers' in raw_state_dict['state'] and not cfg.ignore_optimizers:
         state_optimizer_name = list(raw_state_dict['state']['optimizers'].keys())[0]
 
     state_dict = None
@@ -76,7 +76,7 @@ def main(cfg):
 
     prepare_fsdp_module(model, [], fsdp_config, precision=precision, device=device, auto_microbatching=False)
 
-    if 'optimizers' in raw_state_dict['state']:
+    if 'optimizers' in raw_state_dict['state'] and not cfg.ignore_optimizers:
         print ("before building optimizer")
         optimizer = build_optimizer(cfg.optimizer, model)
         print ("after loading optimizer")
@@ -90,7 +90,7 @@ def main(cfg):
     with fsdp_state_dict_type_context(model, state_dict_type='sharded'):
         raw_state_dict['state']['model'] = model.state_dict()
 
-        if 'optimizers' in raw_state_dict['state']:
+        if 'optimizers' in raw_state_dict['state'] and not cfg.ignore_optimizers:
             print ("getting optimizers")
             # This works with torch 2.0...
             if version.parse(torch.__version__) >= version.parse('2.0.0'):
