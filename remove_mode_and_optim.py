@@ -21,7 +21,7 @@ def main(cfg):
     for optimizer in state_dict['state']['optimizers']:
         state_dict['state']['optimizers'][optimizer] = {}
     if cfg.ignore_optimizers:
-        del state_dict['state']['optimizers']
+        state_dict['state']['optimizers'] = {}
     
     torch.save(state_dict, cfg.raw_state_dict)
 
